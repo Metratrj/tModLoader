@@ -26,7 +26,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="tModLoaderIcon-Small.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tModLoader<span id="projectnumber">&#160;v2024.01</span>
+   <div id="projectname">tModLoader<span id="projectnumber">&#160;v2024.02</span>
    </div>
    <div id="projectbrief">A mod to make and play Terraria mods</div>
   </td>
@@ -526,7 +526,7 @@ static bool[]&#160;</td><td class="memItemRight" valign="bottom"><b>Platforms</b
 <tr class="memitem:a1dca1ebb1a02559d712fe70155ecf7d4"><td class="memItemLeft" align="right" valign="top"><a id="a1dca1ebb1a02559d712fe70155ecf7d4" name="a1dca1ebb1a02559d712fe70155ecf7d4"></a>
 static bool[]&#160;</td><td class="memItemRight" valign="bottom"><b>PreventsTileRemovalIfOnTopOfIt</b> = Factory.CreateBoolSet(false, 5, 323, 72, 488, 26, 583, 584, 585, 586, 587, 588, 589, 596, 616, 470, 475, 634)</td></tr>
 <tr class="memdesc:a1dca1ebb1a02559d712fe70155ecf7d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prevents a tile immediately below a tile of this type from being mineable. <br  />
- Use <a class="el" href="class_mod_tile.html#af7ec20e3094327b7226a7c03ccb8205a" title="Allows you to determine what happens when the tile at the given coordinates is killed or hit with a p...">ModTile.KillTile(int, int, ref bool, ref bool, ref bool)</a> or GlobalTile.KillTile(int, int, int, ref bool, ref bool, ref bool) to dynamically prevent tile removal for situations with more complex logic. Note that block swap will still work. <br  />
+ Use <a class="el" href="class_mod_tile.html#aa30e725d1f6f14c2df4f763a8ef87667" title="Allows you to determine whether or not the tile at the given coordinates can be hit by anything....">ModTile.CanKillTile(int, int, ref bool)</a> or GlobalTile.CanKillTile(int, int, int, ref bool) to dynamically prevent tile removal for situations with more complex logic. Note that block swap will still work. <br  />
  To affect tile replace behavior in a similar manner, see <a class="el" href="class_tile_i_d_1_1_sets.html#a0ffb8223f3a721bbeaeee866d909e781" title="Prevents a tile immediately below a tile of this type from being replaceable via the block swap featu...">PreventsTileReplaceIfOnTopOfIt</a> <br  />
  Used mostly by demon altar, trees, and item display tiles (Mannequin, Hat Rack). <br /></td></tr>
 <tr class="separator:a1dca1ebb1a02559d712fe70155ecf7d4"><td class="memSeparator" colspan="2">&#160;</td></tr>

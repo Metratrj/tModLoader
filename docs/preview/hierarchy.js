@@ -200,6 +200,7 @@ var hierarchy =
     [ "BuffLoader", "class_buff_loader.html", null ],
     [ "BuffID.Sets.BuffMountData", "class_buff_i_d_1_1_sets_1_1_buff_mount_data.html", null ],
     [ "Player.BuilderAccToggleIDs", "class_player_1_1_builder_acc_toggle_i_ds.html", null ],
+    [ "BuilderToggleDrawParams", "struct_builder_toggle_draw_params.html", null ],
     [ "BuilderToggleLoader", "class_builder_toggle_loader.html", null ],
     [ "BuildInfo", "class_build_info.html", null ],
     [ "ChestUI.ButtonID", "class_chest_u_i_1_1_button_i_d.html", null ],
@@ -1450,24 +1451,7 @@ var hierarchy =
             [ "UnloadedSystem", "class_unloaded_system.html", null ]
           ] ],
           [ "ModTexturedType", "class_mod_textured_type.html", [
-            [ "BuilderToggle", "class_builder_toggle.html", [
-              [ "VanillaBuilderToggle", "class_vanilla_builder_toggle.html", [
-                [ "AutoActuateBuilderToggle", "class_auto_actuate_builder_toggle.html", null ],
-                [ "AutoPaintBuilderToggle", "class_auto_paint_builder_toggle.html", null ],
-                [ "BlockSwapBuilderToggle", "class_block_swap_builder_toggle.html", null ],
-                [ "RulerGridBuilderToggle", "class_ruler_grid_builder_toggle.html", null ],
-                [ "RulerLineBuilderToggle", "class_ruler_line_builder_toggle.html", null ],
-                [ "TorchBiomeBuilderToggle", "class_torch_biome_builder_toggle.html", null ],
-                [ "WireVisibilityBuilderToggle", "class_wire_visibility_builder_toggle.html", [
-                  [ "ActuatorsVisibilityBuilderToggle", "class_actuators_visibility_builder_toggle.html", null ],
-                  [ "BlueWireVisibilityBuilderToggle", "class_blue_wire_visibility_builder_toggle.html", null ],
-                  [ "GreenWireVisibilityBuilderToggle", "class_green_wire_visibility_builder_toggle.html", null ],
-                  [ "HideAllWiresBuilderToggle", "class_hide_all_wires_builder_toggle.html", null ],
-                  [ "RedWireVisibilityBuilderToggle", "class_red_wire_visibility_builder_toggle.html", null ],
-                  [ "YellowWireVisibilityBuilderToggle", "class_yellow_wire_visibility_builder_toggle.html", null ]
-                ] ]
-              ] ]
-            ] ],
+            [ "BuilderToggle", "class_builder_toggle.html", null ],
             [ "InfoDisplay", "class_info_display.html", [
               [ "VanillaInfoDisplay", "class_vanilla_info_display.html", [
                 [ "CompassInfoDisplay", "class_compass_info_display.html", null ],
@@ -2216,6 +2200,11 @@ var hierarchy =
     [ "PortalHelper", "class_portal_helper.html", null ],
     [ "PosData< T >", "struct_pos_data.html", null ],
     [ "PosData< ushort >", "struct_pos_data.html", null ],
+    [ "BuilderToggle.Position", "class_builder_toggle_1_1_position.html", [
+      [ "BuilderToggle.After", "class_builder_toggle_1_1_after.html", null ],
+      [ "BuilderToggle.Before", "class_builder_toggle_1_1_before.html", null ],
+      [ "BuilderToggle.Default", "class_builder_toggle_1_1_default.html", null ]
+    ] ],
     [ "ExtraJump.Position", "class_extra_jump_1_1_position.html", [
       [ "ExtraJump.After", "class_extra_jump_1_1_after.html", null ],
       [ "ExtraJump.Before", "class_extra_jump_1_1_before.html", null ]
@@ -2633,6 +2622,24 @@ var hierarchy =
       [ "ModPacket", "class_mod_packet.html", null ]
     ] ],
     [ "bool?", "classbool_04.html", null ],
+    [ "BuilderToggle", null, [
+      [ "VanillaBuilderToggle", "class_vanilla_builder_toggle.html", [
+        [ "AutoActuateBuilderToggle", "class_auto_actuate_builder_toggle.html", null ],
+        [ "AutoPaintBuilderToggle", "class_auto_paint_builder_toggle.html", null ],
+        [ "BlockSwapBuilderToggle", "class_block_swap_builder_toggle.html", null ],
+        [ "RulerGridBuilderToggle", "class_ruler_grid_builder_toggle.html", null ],
+        [ "RulerLineBuilderToggle", "class_ruler_line_builder_toggle.html", null ],
+        [ "TorchBiomeBuilderToggle", "class_torch_biome_builder_toggle.html", null ],
+        [ "WireVisibilityBuilderToggle", "class_wire_visibility_builder_toggle.html", [
+          [ "ActuatorsVisibilityBuilderToggle", "class_actuators_visibility_builder_toggle.html", null ],
+          [ "BlueWireVisibilityBuilderToggle", "class_blue_wire_visibility_builder_toggle.html", null ],
+          [ "GreenWireVisibilityBuilderToggle", "class_green_wire_visibility_builder_toggle.html", null ],
+          [ "HideAllWiresBuilderToggle", "class_hide_all_wires_builder_toggle.html", null ],
+          [ "RedWireVisibilityBuilderToggle", "class_red_wire_visibility_builder_toggle.html", null ],
+          [ "YellowWireVisibilityBuilderToggle", "class_yellow_wire_visibility_builder_toggle.html", null ]
+        ] ]
+      ] ]
+    ] ],
     [ "IDisposable", null, [
       [ "ASoundEffectBasedAudioTrack", "class_a_sound_effect_based_audio_track.html", [
         [ "MP3AudioTrack", "class_m_p3_audio_track.html", null ],

@@ -204,11 +204,7 @@ var NAVTREEINDEX0 =
 "class_async_provider_state_extensions.html":[3,0,56],
 "class_attribute.html":[3,0,57],
 "class_auto_actuate_builder_toggle.html":[3,0,58],
-"class_auto_actuate_builder_toggle.html#a1c220982ce5c7cec1f4ca835472f0e53":[3,0,58,1],
-"class_auto_actuate_builder_toggle.html#a6dee0b2debf1c3fe4a54bc5f0e92f642":[3,0,58,0],
 "class_auto_paint_builder_toggle.html":[3,0,63],
-"class_auto_paint_builder_toggle.html#a39441e8b8a393b7c8e4dc0b83e51583d":[3,0,63,1],
-"class_auto_paint_builder_toggle.html#aefd3733792c575f3c36de8a5eefb3377":[3,0,63,0],
 "class_autoload_attribute.html":[3,0,59],
 "class_autoload_boss_head.html":[3,0,60],
 "class_autoload_equip.html":[3,0,61],
@@ -249,5 +245,9 @@ var NAVTREEINDEX0 =
 "class_big_progress_bar_helper.html#a848a4001dc17bba1eb3ece1ff5037bee":[3,0,88,0],
 "class_big_progress_bar_system.html":[3,0,90],
 "class_big_progress_bar_system.html#af88d2d3e06a19e83f551902ead8e538f":[3,0,90,0],
-"class_binary_i_o.html":[3,0,91]
+"class_binary_i_o.html":[3,0,91],
+"class_biome_conversion_i_d.html":[3,0,93],
+"class_biome_loader.html":[3,0,94],
+"class_biome_preference_list_trait.html":[3,0,95],
+"class_biome_preference_list_trait_1_1_biome_preference.html":[3,0,95,0]
 };
