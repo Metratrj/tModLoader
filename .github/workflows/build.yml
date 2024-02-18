@@ -1,4 +1,4 @@
-name: Build tModLoader
+name: Build tModLoader 
 
 env:
     DevBranch: 1.4.4
