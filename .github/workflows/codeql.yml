@@ -67,6 +67,50 @@ jobs:
         # update key with new Terraria releases and when ilspy or ilspy decompile settings are updated
         key: 1449-A
 
+    - name: Update Versioning
+        id: version
+        if: env.IsVersioned == 'true'
+        shell: bash
+        run: |
+          echo "Attempting get previous version id"
+          version=$(git describe --tags --abbrev=0)
+          
+          echo "Previous Version is: $version"
+          regex="^v([0-9]+).([0-9]+).([0-9]+).([0-9]+)?$"
+          if [[ $version =~ $regex ]] ; then
+            year="${BASH_REMATCH[1]}"
+            month="${BASH_REMATCH[2]}"
+            feature="${BASH_REMATCH[3]}"
+            patch="${BASH_REMATCH[4]}"
+            oldate="$year.$month"
+          else
+            echo "Previous version '$version' is not a valid version"
+            exit 1
+          fi
+          
+          echo "Checking Version Updates"
+          newdt="$(date +%Y.%m)"
+          if [[ "refs/heads/${{env.DevBranch}}" = $branch && ! "$oldate" = "$newdt" ]] ; then
+            echo "Checking Version Updates for ${{env.DevBranch}}"
+            echo "Rolling Forward the Month... from '$oldate' to '$newdt'"
+            oldate="$newdt"
+            feature=1
+            patch=0
+          elif [[ "refs/heads/${{env.StableBranch}}" = $branch && $feature = 2 || "refs/heads/${{env.PreviewBranch}}" = $branch && $feature = 1 ]] ; then
+             echo "Checking Version Updates for Rollover"
+             ((++feature))
+             patch=0
+          else
+            echo "Rolling Forward the Patch #..."
+            ((++patch))
+          fi
+          
+          version="$oldate.$feature.$patch"
+          echo "New version is '$version'"
+          echo "::set-output name=new_version::$version"
+        env:
+          branch: ${{github.ref}}
+        
     - name: Restore decompiled folder from cache
       if: steps.cache-decompiled.outputs.cache-hit == 'true'
       shell: bash
@@ -87,7 +131,7 @@ jobs:
       with:
         dotnet-version: '6.0.406'
 
-    - name: Build script
+    - name: Setup
       shell: bash
       run: |
         echo CI setup for Terraria v$TERRARIA_VERSION
@@ -117,6 +161,30 @@ jobs:
         ./setup.bat auto ./$TERRARIA_VERSION/Windows
         echo ::endgroup::
           
+        
+      env:
+        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        TMLVERSION: ${{ steps.version.outputs.new_version }}
+        STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+
+        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
+
+
+    # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
+    # If this step fails, then you should remove it and run the build manually (see below)
+    - name: Build
+      run: |
         echo ::group::WorkspaceInfo.targets
         cat src/WorkspaceInfo.targets; echo
         echo ::endgroup::
@@ -165,45 +233,11 @@ jobs:
         7z a decompiled.zip ./src/decompiled/
         gpg --quiet --batch --yes --symmetric --cipher-algo AES256 --passphrase="$SETUP_ASSETS_PASSPHRASE" decompiled.zip
         echo ::endgroup::
-        
-        echo ::group::Creating RecentGitHubCommits.txt
-        git log -10 --format=oneline
-        git log -10 --format=oneline > artifacts/Debug/RecentGitHubCommits.txt
-        git log -10 --format=oneline > artifacts/Release/RecentGitHubCommits.txt
-        echo ::endgroup::
       env:
-        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
-        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        TMLVERSION: ${{ steps.version.outputs.new_version }}
-        STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
-
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
-
-        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
-        # queries: security-extended,security-and-quality
-
-
-    # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
-    # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
-
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-
-    #   If the Autobuild fails above, remove it and uncomment the following three lines.
-    #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
-
-    # - run: |
-    #     echo "Run, Build Application using script"
-    #     ./location_of_script_within_repo/buildscript.sh
+          SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TMLVERSION: ${{ steps.version.outputs.new_version }}
+          STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
