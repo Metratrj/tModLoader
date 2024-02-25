@@ -68,48 +68,48 @@ jobs:
         key: 1449-A
 
     - name: Update Versioning
-        id: version
-        if: env.IsVersioned == 'true'
-        shell: bash
-        run: |
-          echo "Attempting get previous version id"
-          version=$(git describe --tags --abbrev=0)
+      id: version
+      if: env.IsVersioned == 'true'
+      shell: bash
+      run: |
+        echo "Attempting get previous version id"
+        version=$(git describe --tags --abbrev=0)
+        
+        echo "Previous Version is: $version"
+        regex="^v([0-9]+).([0-9]+).([0-9]+).([0-9]+)?$"
+        if [[ $version =~ $regex ]] ; then
+          year="${BASH_REMATCH[1]}"
+          month="${BASH_REMATCH[2]}"
+          feature="${BASH_REMATCH[3]}"
+          patch="${BASH_REMATCH[4]}"
+          oldate="$year.$month"
+        else
+          echo "Previous version '$version' is not a valid version"
+          exit 1
+        fi
+        
+        echo "Checking Version Updates"
+        newdt="$(date +%Y.%m)"
+        if [[ "refs/heads/${{env.DevBranch}}" = $branch && ! "$oldate" = "$newdt" ]] ; then
+          echo "Checking Version Updates for ${{env.DevBranch}}"
+          echo "Rolling Forward the Month... from '$oldate' to '$newdt'"
+          oldate="$newdt"
+          feature=1
+          patch=0
+        elif [[ "refs/heads/${{env.StableBranch}}" = $branch && $feature = 2 || "refs/heads/${{env.PreviewBranch}}" = $branch && $feature = 1 ]] ; then
+           echo "Checking Version Updates for Rollover"
+           ((++feature))
+           patch=0
+        else
+          echo "Rolling Forward the Patch #..."
+          ((++patch))
+        fi
           
-          echo "Previous Version is: $version"
-          regex="^v([0-9]+).([0-9]+).([0-9]+).([0-9]+)?$"
-          if [[ $version =~ $regex ]] ; then
-            year="${BASH_REMATCH[1]}"
-            month="${BASH_REMATCH[2]}"
-            feature="${BASH_REMATCH[3]}"
-            patch="${BASH_REMATCH[4]}"
-            oldate="$year.$month"
-          else
-            echo "Previous version '$version' is not a valid version"
-            exit 1
-          fi
-          
-          echo "Checking Version Updates"
-          newdt="$(date +%Y.%m)"
-          if [[ "refs/heads/${{env.DevBranch}}" = $branch && ! "$oldate" = "$newdt" ]] ; then
-            echo "Checking Version Updates for ${{env.DevBranch}}"
-            echo "Rolling Forward the Month... from '$oldate' to '$newdt'"
-            oldate="$newdt"
-            feature=1
-            patch=0
-          elif [[ "refs/heads/${{env.StableBranch}}" = $branch && $feature = 2 || "refs/heads/${{env.PreviewBranch}}" = $branch && $feature = 1 ]] ; then
-             echo "Checking Version Updates for Rollover"
-             ((++feature))
-             patch=0
-          else
-            echo "Rolling Forward the Patch #..."
-            ((++patch))
-          fi
-          
-          version="$oldate.$feature.$patch"
-          echo "New version is '$version'"
-          echo "::set-output name=new_version::$version"
-        env:
-          branch: ${{github.ref}}
+        version="$oldate.$feature.$patch"
+        echo "New version is '$version'"
+        echo "::set-output name=new_version::$version"
+      env:
+        branch: ${{github.ref}}
         
     - name: Restore decompiled folder from cache
       if: steps.cache-decompiled.outputs.cache-hit == 'true'
