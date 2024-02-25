@@ -36,7 +36,7 @@ jobs:
     #   - https://gh.io/supported-runners-and-hardware-resources
     #   - https://gh.io/using-larger-runners
     # Consider using larger runners for possible analysis time improvements.
-    runs-on: [ 'ubuntu-latest', 'windows-latest' ]
+    runs-on: 'windows-latest'
     timeout-minutes: 360
     permissions:
       # required for all workflows
@@ -58,6 +58,124 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    # A cache allows the build to skip the decompile step
+    - name: Retrieve encrypted decompiled zip cache
+      id: cache-decompiled
+      uses: actions/cache@v2
+      with:
+        path: decompiled.zip.gpg
+        # update key with new Terraria releases and when ilspy or ilspy decompile settings are updated
+        key: 1449-A
+
+    - name: Restore decompiled folder from cache
+      if: steps.cache-decompiled.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo Restoring decompiled folder from cache
+        ls -l
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output decompiled.zip decompiled.zip.gpg
+        ls -l
+        unzip -o decompiled.zip -d src
+        cd src
+        ls -l
+        cd ..
+      env:
+        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+
+    - name: Install .NET SDKs
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.406'
+
+    - name: Build script
+      shell: bash
+      run: |
+        echo CI setup for Terraria v$TERRARIA_VERSION
+        
+        echo Default .NET version:
+        dotnet --version
+        echo Default .NET 'build' version:
+        dotnet build --version --nologo
+        echo Listing installed .NET SDKs:
+        dotnet --list-sdks
+        echo Listing installed .NET Runtimes:
+        dotnet --list-runtimes
+        
+        echo Downloading Terraria Server zip
+        curl -s -L https://terraria.org/api/download/pc-dedicated-server/terraria-server-$TERRARIA_VERSION.zip -o terrariaserver.zip
+        unzip -q terrariaserver.zip
+        echo Extracting Setup Secret Assets
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output ./$TERRARIA_VERSION/Windows/Terraria.exe ./setup/SecretAssets/SetupAsset1.gpg
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output ./$TERRARIA_VERSION/Windows/SteelSeriesEngineWrapper.dll ./setup/SecretAssets/SetupAsset2.gpg
+          
+        echo Installing XNA
+        curl -s -L https://github.com/JavidPack/tModLoaderPublishIntegration/raw/master/xnafx40_redist.msi -O
+        msiexec //i xnafx40_redist.msi //quiet
+        echo XNA Installed
+        
+        echo ::group::Running setup.bat
+        ./setup.bat auto ./$TERRARIA_VERSION/Windows
+        echo ::endgroup::
+          
+        echo ::group::WorkspaceInfo.targets
+        cat src/WorkspaceInfo.targets; echo
+        echo ::endgroup::
+        
+        echo ::group::Creating tModLoader cache zip file
+        7z a tModLoader.zip ./src/tModLoader/
+        gpg --quiet --batch --yes --symmetric --cipher-algo AES256 --passphrase="$SETUP_ASSETS_PASSPHRASE" tModLoader.zip
+        echo ::endgroup::
+        
+        echo ::group::Giving Purpose         
+        if [ ${{github.ref}} = 'refs/heads/${{env.StableBranch}}' ] ; then
+          export BUILDPURPOSE="Stable"
+        fi
+        if [ ${{github.ref}} = 'refs/heads/${{env.PreviewBranch}}' ] ; then
+          export BUILDPURPOSE="Preview"
+        fi
+        echo ::endgroup::
+        
+        echo ::group::Building Release
+        dotnet clean src/tModLoader/Terraria/Terraria.csproj -c Release --nologo -v q
+        (
+          set +e;
+          dotnet build src/tModLoader/Terraria/Terraria.csproj -c Release --nologo -v q -bl;
+          err=$?;
+          [[ $err -ne 0 ]] && echo Uploading msbuild.binlog && curl --upload-file ./msbuild.binlog http://transfer.sh/msbuild.binlog;
+          exit $err
+        )
+        
+        mkdir -p artifacts/Release
+        cp -r steam_build/. artifacts/Release
+        
+        echo ::endgroup::
+          
+        echo Cleaning up output directory in-between builds...
+        rm -rf steam_build
+        
+        echo ::group::Building Debug
+        dotnet clean src/tModLoader/Terraria/Terraria.csproj -c Debug --nologo -v q
+        dotnet build src/tModLoader/Terraria/Terraria.csproj -c Debug --nologo -v q
+        
+        mkdir -p artifacts/Debug
+        cp -r steam_build/. artifacts/Debug
+        echo ::endgroup::
+        
+        echo ::group::Creating decompiled cache zip file
+        7z a decompiled.zip ./src/decompiled/
+        gpg --quiet --batch --yes --symmetric --cipher-algo AES256 --passphrase="$SETUP_ASSETS_PASSPHRASE" decompiled.zip
+        echo ::endgroup::
+        
+        echo ::group::Creating RecentGitHubCommits.txt
+        git log -10 --format=oneline
+        git log -10 --format=oneline > artifacts/Debug/RecentGitHubCommits.txt
+        git log -10 --format=oneline > artifacts/Release/RecentGitHubCommits.txt
+        echo ::endgroup::
+      env:
+        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        TMLVERSION: ${{ steps.version.outputs.new_version }}
+        STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
