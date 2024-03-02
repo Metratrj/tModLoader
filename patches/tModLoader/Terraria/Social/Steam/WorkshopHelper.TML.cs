@@ -232,7 +232,7 @@ public partial class WorkshopHelper
 					UsedTags = usedTags,
 					PreviewImagePath = iconPath
 				};
-				
+
 				SocialAPI.Workshop.PublishMod(modFile, values, publishSetttings);
 			}
 			finally {
@@ -335,7 +335,7 @@ public partial class WorkshopHelper
 						ReleaseWorkshopQuery();
 					}
 				}
-				
+
 				return items;
 			}
 
@@ -359,7 +359,7 @@ public partial class WorkshopHelper
 							continue;
 						}
 
-						foreach (var item in SortItemsResults(await Task.Run(ProcessPageResult), queryParameters))
+						foreach (var item in await Task.Run(ProcessPageResult))
 							yield return item;
 					}
 					finally {
@@ -368,19 +368,6 @@ public partial class WorkshopHelper
 
 					currentPageAttempts = 0;
 				} while (++currentPage <= numberPages);
-			}
-
-
-			private IEnumerable<ModDownloadItem> SortItemsResults(IEnumerable<ModDownloadItem> items, QueryParameters queryParameters)
-			{
-				if (!string.IsNullOrEmpty(queryParameters.searchGeneric) || !string.IsNullOrEmpty(queryParameters.searchAuthor))
-					return queryParameters.sortingParamater switch {
-						ModBrowserSortMode.DownloadsDescending => items.OrderByDescending(i => i.Downloads),
-						ModBrowserSortMode.Hot => items.OrderBy(i => i.Hot),
-						ModBrowserSortMode.RecentlyUpdated => items.OrderByDescending(i => i.TimeStamp),
-						_ => items,
-					};
-				return items;
 			}
 
 			private IEnumerable<ModDownloadItem> ProcessPageResult()
@@ -447,7 +434,7 @@ public partial class WorkshopHelper
 
 					await Task.Delay(1, token);
 				}
-				
+
 				if (_primaryQueryResult != EResult.k_EResultOK) {
 					SteamedWraps.ReportCheckSteamLogs();
 					throw new Exception($"Error: Unable to access Steam Workshop. ERROR CODE: {_primaryQueryResult}");

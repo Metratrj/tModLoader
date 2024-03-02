@@ -154,7 +154,7 @@ internal static class WorldIO
 				g.SaveData(npc, data);
 				if (data.Count == 0)
 					continue;
-				
+
 				globalData.Add(new TagCompound {
 					["mod"] = g.Mod.Name,
 					["name"] = g.Name,
@@ -506,18 +506,12 @@ internal static class WorldIO
 			if (saveData.Count == 0)
 				continue;
 
-				list.Add(new TagCompound {
-					["mod"] = system.Mod.Name,
-					["name"] = system.Name,
-					["data"] = saveData
-				});
-				saveData = new TagCompound();
-			}
-			catch (Exception e) {
-				throw new CustomModDataException(system.Mod,
-					"Error in saving custom world data for " + system.Mod.Name, e);
-			}
-
+			list.Add(new TagCompound {
+				["mod"] = system.Mod.Name,
+				["name"] = system.Name,
+				["data"] = saveData
+			});
+			saveData = new TagCompound();
 		}
 
 		return list;
@@ -659,7 +653,7 @@ internal static class WorldIO
 			["usedMods"] = SaveUsedMods(),
 			["usedModPack"] = SaveUsedModPack(),
 			["generatedWithMods"] = SaveGeneratedWithMods(),
-		};			
+		};
 	}
 
 	private static TagCompound SaveModHeaders()
