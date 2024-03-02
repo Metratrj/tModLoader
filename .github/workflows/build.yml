@@ -378,7 +378,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_BUILDBOT }}
           description: |
-            Click [here](https://github.com/tModLoader/tModLoader/actions/runs/${{ github.run_id }}) to view.
+            Click [here](https://github.com/Metratrj/tModLoader/actions/runs/${{ github.run_id }}) to view.
 
       - name: Post pull request report to 1-4-nightly-builds on Discord
         uses: sarisia/actions-status-discord@v1
@@ -388,8 +388,8 @@ jobs:
           color: ${{ fromJSON('{"success":1600299, "failure":8394270, "cancelled":10254856}')[job.status] }}
           description: |
             Pull Request: ${{github.event.pull_request.head.ref}} from ${{github.event.pull_request.head.repo.full_name}}
-            Click [here](https://github.com/tModLoader/tModLoader/pull/${{ github.event.number }}) to see pull request.
-            Click [here](https://github.com/tModLoader/tModLoader/actions/runs/${{ github.run_id }}) to view build.
+            Click [here](https://github.com/Metratrj/tModLoader/pull/${{ github.event.number }}) to see pull request.
+            Click [here](https://github.com/Metratrj/tModLoader/actions/runs/${{ github.run_id }}) to view build.
 
   documentation:
     # Documentation generated on successful builds of pushes to ${{env.StableBranch}} and ${{env.PreviewBranch}}

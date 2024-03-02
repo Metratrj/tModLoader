@@ -1,0 +1,246 @@
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL"
+
+env:
+  DevBranch: 1.4.4
+  StableBranch: stable
+  PreviewBranch: preview
+  TERRARIA_VERSION: 1449
+  RunDiscordHook: true
+
+on:
+  push:
+    branches: [ "1.4.4", "preview", "stable", "feature/dotnet8", "gh_actions_test" ]
+  pull_request:
+    types: [labeled]
+    branches: [ "1.4.4", "preview", "stable" ]
+  schedule:
+    - cron: '20 5 * * 6'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze
+    # Runner size impacts CodeQL analysis time. To learn more, please see:
+    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
+    #   - https://gh.io/supported-runners-and-hardware-resources
+    #   - https://gh.io/using-larger-runners
+    # Consider using larger runners for possible analysis time improvements.
+    runs-on: 'windows-latest'
+    timeout-minutes: 360
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp' ]
+        # CodeQL supports [ 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'swift' ]
+        # Use only 'java-kotlin' to analyze code written in Java, Kotlin or both
+        # Use only 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
+        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    # A cache allows the build to skip the decompile step
+    - name: Retrieve encrypted decompiled zip cache
+      id: cache-decompiled
+      uses: actions/cache@v2
+      with:
+        path: decompiled.zip.gpg
+        # update key with new Terraria releases and when ilspy or ilspy decompile settings are updated
+        key: 1449-A
+
+    - name: Update Versioning
+      id: version
+      if: env.IsVersioned == 'true'
+      shell: bash
+      run: |
+        echo "Attempting get previous version id"
+        version=$(git describe --tags --abbrev=0)
+        
+        echo "Previous Version is: $version"
+        regex="^v([0-9]+).([0-9]+).([0-9]+).([0-9]+)?$"
+        if [[ $version =~ $regex ]] ; then
+          year="${BASH_REMATCH[1]}"
+          month="${BASH_REMATCH[2]}"
+          feature="${BASH_REMATCH[3]}"
+          patch="${BASH_REMATCH[4]}"
+          oldate="$year.$month"
+        else
+          echo "Previous version '$version' is not a valid version"
+          exit 1
+        fi
+        
+        echo "Checking Version Updates"
+        newdt="$(date +%Y.%m)"
+        if [[ "refs/heads/${{env.DevBranch}}" = $branch && ! "$oldate" = "$newdt" ]] ; then
+          echo "Checking Version Updates for ${{env.DevBranch}}"
+          echo "Rolling Forward the Month... from '$oldate' to '$newdt'"
+          oldate="$newdt"
+          feature=1
+          patch=0
+        elif [[ "refs/heads/${{env.StableBranch}}" = $branch && $feature = 2 || "refs/heads/${{env.PreviewBranch}}" = $branch && $feature = 1 ]] ; then
+           echo "Checking Version Updates for Rollover"
+           ((++feature))
+           patch=0
+        else
+          echo "Rolling Forward the Patch #..."
+          ((++patch))
+        fi
+          
+        version="$oldate.$feature.$patch"
+        echo "New version is '$version'"
+        echo "::set-output name=new_version::$version"
+      env:
+        branch: ${{github.ref}}
+        
+    - name: Restore decompiled folder from cache
+      if: steps.cache-decompiled.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo Restoring decompiled folder from cache
+        ls -l
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output decompiled.zip decompiled.zip.gpg
+        ls -l
+        unzip -o decompiled.zip -d src
+        cd src
+        ls -l
+        cd ..
+      env:
+        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+
+    - name: Install .NET SDKs
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.406'
+
+    - name: Setup
+      shell: bash
+      run: |
+        echo CI setup for Terraria v$TERRARIA_VERSION
+        
+        echo Default .NET version:
+        dotnet --version
+        echo Default .NET 'build' version:
+        dotnet build --version --nologo
+        echo Listing installed .NET SDKs:
+        dotnet --list-sdks
+        echo Listing installed .NET Runtimes:
+        dotnet --list-runtimes
+        
+        echo Downloading Terraria Server zip
+        curl -s -L https://terraria.org/api/download/pc-dedicated-server/terraria-server-$TERRARIA_VERSION.zip -o terrariaserver.zip
+        unzip -q terrariaserver.zip
+        echo Extracting Setup Secret Assets
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output ./$TERRARIA_VERSION/Windows/Terraria.exe ./setup/SecretAssets/SetupAsset1.gpg
+        gpg --quiet --batch --yes --decrypt --passphrase="$SETUP_ASSETS_PASSPHRASE" --output ./$TERRARIA_VERSION/Windows/SteelSeriesEngineWrapper.dll ./setup/SecretAssets/SetupAsset2.gpg
+          
+        echo Installing XNA
+        curl -s -L https://github.com/JavidPack/tModLoaderPublishIntegration/raw/master/xnafx40_redist.msi -O
+        msiexec //i xnafx40_redist.msi //quiet
+        echo XNA Installed
+        
+        echo ::group::Running setup.bat
+        ./setup.bat auto ./$TERRARIA_VERSION/Windows
+        echo ::endgroup::
+          
+        
+      env:
+        SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        TMLVERSION: ${{ steps.version.outputs.new_version }}
+        STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+
+        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
+
+
+    # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
+    # If this step fails, then you should remove it and run the build manually (see below)
+    - name: Build
+      shell: bash
+      run: |
+        echo ::group::WorkspaceInfo.targets
+        cat src/WorkspaceInfo.targets; echo
+        echo ::endgroup::
+        
+        echo ::group::Creating tModLoader cache zip file
+        7z a tModLoader.zip ./src/tModLoader/
+        gpg --quiet --batch --yes --symmetric --cipher-algo AES256 --passphrase="$SETUP_ASSETS_PASSPHRASE" tModLoader.zip
+        echo ::endgroup::
+        
+        echo ::group::Giving Purpose         
+        if [ ${{github.ref}} = 'refs/heads/${{env.StableBranch}}' ] ; then
+          export BUILDPURPOSE="Stable"
+        fi
+        if [ ${{github.ref}} = 'refs/heads/${{env.PreviewBranch}}' ] ; then
+          export BUILDPURPOSE="Preview"
+        fi
+        echo ::endgroup::
+        
+        echo ::group::Building Release
+        dotnet clean src/tModLoader/Terraria/Terraria.csproj -c Release --nologo -v q
+        (
+          set +e;
+          dotnet build src/tModLoader/Terraria/Terraria.csproj -c Release --nologo -v q -bl;
+          err=$?;
+          [[ $err -ne 0 ]] && echo Uploading msbuild.binlog && curl --upload-file ./msbuild.binlog http://transfer.sh/msbuild.binlog;
+          exit $err
+        )
+        
+        mkdir -p artifacts/Release
+        cp -r steam_build/. artifacts/Release
+        
+        echo ::endgroup::
+          
+        echo Cleaning up output directory in-between builds...
+        rm -rf steam_build
+        
+        echo ::group::Building Debug
+        dotnet clean src/tModLoader/Terraria/Terraria.csproj -c Debug --nologo -v q
+        dotnet build src/tModLoader/Terraria/Terraria.csproj -c Debug --nologo -v q
+        
+        mkdir -p artifacts/Debug
+        cp -r steam_build/. artifacts/Debug
+        echo ::endgroup::
+        
+        echo ::group::Creating decompiled cache zip file
+        7z a decompiled.zip ./src/decompiled/
+        gpg --quiet --batch --yes --symmetric --cipher-algo AES256 --passphrase="$SETUP_ASSETS_PASSPHRASE" decompiled.zip
+        echo ::endgroup::
+      env:
+          SETUP_ASSETS_PASSPHRASE: ${{ secrets.SETUP_ASSETS_PASSPHRASE }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TMLVERSION: ${{ steps.version.outputs.new_version }}
+          STABLEVERSION: ${{ steps.StableVer.outputs.stable_version }}
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
