@@ -71,7 +71,8 @@ public static class ModContent
 	}
 
 	/// <summary>
-	/// Gets the byte representation of the file with the specified name. The name is in the format of "ModFolder/OtherFolders/FileNameWithExtension". Throws an ArgumentException if the file does not exist.
+	/// Retrieves the contents of a file packaged within the .tmod file as a byte array. Should be used mainly for non-<see cref="Asset{T}"/> files. The <paramref name="name"/> should be in the format of "ModFolder/OtherFolders/FileNameWithExtension". Throws an ArgumentException if the mod does not exist. Returns null if the file does not exist.
+	/// <para/> A typical usage of this might be to load a text file containing structured data included within your mod. Make sure the txt file is UTF8 encoded and use the following to retrieve file's text contents: <c>string pointsFileContents = Encoding.UTF8.GetString(ModContent.GetFileBytes("MyMod/data/points.txt"));</c>
 	/// </summary>
 	/// <exception cref="MissingResourceException"></exception>
 	public static byte[] GetFileBytes(string name)
@@ -85,7 +86,7 @@ public static class ModContent
 	}
 
 	/// <summary>
-	/// Returns whether or not a file with the specified name exists.
+	/// Returns whether or not a file with the specified name exists. Note that this includes file extension, the folder path, and must start with the mod name at the start of the path: "ModFolder/OtherFolders/FileNameWithExtension"
 	/// </summary>
 	public static bool FileExists(string name)
 	{
@@ -99,7 +100,10 @@ public static class ModContent
 
 	/// <summary>
 	/// Gets the asset with the specified name. Throws an Exception if the asset does not exist.
-	/// <para/> Modders may wish to use <c>Mod.Assets.Request</c> instead to access assets from within their mod and omit the mod name from the provided path if that is more convenient.
+	/// <para/>
+	/// Modders may wish to use <c>Mod.Assets.Request</c> where the mod name prefix may be omitted for convenience.
+	/// <para/>
+	/// <inheritdoc cref="IAssetRepository.Request{T}(string, AssetRequestMode)"/>
 	/// </summary>
 	/// <param name="name">The path to the asset without extension, including the mod name (or Terraria) for vanilla assets. Eg "ModName/Folder/FileNameWithoutExtension"</param>
 	/// <param name="mode">The desired timing for when the asset actually loads. Use ImmediateLoad if you need correct dimensions immediately, such as with UI initialization</param>
@@ -377,6 +381,8 @@ public static class ModContent
 			token.ThrowIfCancellationRequested();
 			Interface.loadMods.SetCurrentMod(num++, mod);
 			try {
+				using var _ = new AssetWaitTracker(mod);
+
 				loadAction(mod);
 			}
 			catch (Exception e) {
@@ -601,5 +607,31 @@ public static class ModContent
 		foreach (var mod in ModLoader.Mods)
 			if (mod.Assets is AssetRepository assetRepo && !assetRepo.IsDisposed)
 				assetRepo.TransferCompletedAssets();
+	}
+
+	private class AssetWaitTracker : IDisposable
+	{
+		public static readonly TimeSpan MinReportThreshold = TimeSpan.FromMilliseconds(10);
+
+		private readonly Mod mod;
+		private TimeSpan total;
+
+		public AssetWaitTracker(Mod mod)
+		{
+			this.mod = mod;
+			AssetRepository.OnBlockingLoadCompleted += AddWaitTime;
+		}
+
+		private void AddWaitTime(TimeSpan t) => total += t;
+
+		public void Dispose()
+		{
+			AssetRepository.OnBlockingLoadCompleted -= AddWaitTime;
+			if (total > MinReportThreshold) {
+				Logging.tML.Warn(
+					$"{mod.Name} spent {(int)total.TotalMilliseconds}ms blocking on asset loading. " +
+					$"Avoid using {nameof(AssetRequestMode)}.{nameof(AssetRequestMode.ImmediateLoad)} during mod loading where possible");
+			}
+		}
 	}
 }
