@@ -25,6 +25,7 @@ using Terraria.Graphics.Effects;
 using Terraria.GameContent.Skies;
 using Terraria.GameContent;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace Terraria.ModLoader;
 
@@ -99,6 +100,10 @@ public static class ModContent
 
 	/// <summary>
 	/// Gets the asset with the specified name. Throws an Exception if the asset does not exist.
+	/// <para/>
+	/// Modders may wish to use <c>Mod.Assets.Request</c> where the mod name prefix may be omitted for convenience.
+	/// <para/>
+	/// <inheritdoc cref="IAssetRepository.Request{T}(string, AssetRequestMode)"/>
 	/// </summary>
 	/// <param name="name">The path to the asset without extension, including the mod name (or Terraria) for vanilla assets. Eg "ModName/Folder/FileNameWithoutExtension"</param>
 	/// <param name="mode">The desired timing for when the asset actually loads. Use ImmediateLoad if you need correct dimensions immediately, such as with UI initialization</param>
@@ -376,6 +381,8 @@ public static class ModContent
 			token.ThrowIfCancellationRequested();
 			Interface.loadMods.SetCurrentMod(num++, mod);
 			try {
+				using var _ = new AssetWaitTracker(mod);
+
 				loadAction(mod);
 			}
 			catch (Exception e) {
@@ -597,8 +604,51 @@ public static class ModContent
 
 	internal static void TransferCompletedAssets()
 	{
-		foreach (var mod in ModLoader.Mods)
+		if (!ModLoader.isLoading) {
+			DoTransferCompletedAssets();
+			return;
+		}
+
+		// During mod loading, spin wait for assets to transfer. Note that SpinWait.SpinUntil uses a low resolution timer (~15ms on windows) so it may spin for up to that long.
+		// If any assets are queued we will continue to spend main thread time to transfer assets. We accept some frame stutter to hopefully sync up with repeated ImmediateLoad calls and get better throughput
+		var sw = Stopwatch.StartNew();
+		while (sw.ElapsedMilliseconds < 15 && SpinWait.SpinUntil(DoTransferCompletedAssets, millisecondsTimeout: 1)) { }
+	}
+
+	private static bool DoTransferCompletedAssets()
+	{
+		bool transferredAnything = false;
+		foreach (var mod in ModLoader.Mods) {
 			if (mod.Assets is AssetRepository assetRepo && !assetRepo.IsDisposed)
-				assetRepo.TransferCompletedAssets();
+				transferredAnything |= assetRepo.TransferCompletedAssets();
+		}
+
+		return false;
+	}
+
+	private class AssetWaitTracker : IDisposable
+	{
+		public static readonly TimeSpan MinReportThreshold = TimeSpan.FromMilliseconds(10);
+
+		private readonly Mod mod;
+		private TimeSpan total;
+
+		public AssetWaitTracker(Mod mod)
+		{
+			this.mod = mod;
+			AssetRepository.OnBlockingLoadCompleted += AddWaitTime;
+		}
+
+		private void AddWaitTime(TimeSpan t) => total += t;
+
+		public void Dispose()
+		{
+			AssetRepository.OnBlockingLoadCompleted -= AddWaitTime;
+			if (total > MinReportThreshold) {
+				Logging.tML.Warn(
+					$"{mod.Name} spent {(int)total.TotalMilliseconds}ms blocking on asset loading. " +
+					$"Avoid using {nameof(AssetRequestMode)}.{nameof(AssetRequestMode.ImmediateLoad)} during mod loading where possible");
+			}
+		}
 	}
 }

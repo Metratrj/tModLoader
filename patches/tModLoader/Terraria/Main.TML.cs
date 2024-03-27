@@ -19,6 +19,10 @@ using Terraria.Social;
 using Terraria.UI.Chat;
 using ReLogic.Content;
 using Terraria.UI.Gamepad;
+using System.Linq;
+using Terraria.ModLoader.Core;
+using Terraria.ModLoader.Default;
+using Terraria.ModLoader.Config;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 
@@ -75,6 +79,83 @@ public partial class Main
 	/// This works in the player select screen, and in multiplayer (when other players are updating)
 	/// </summary>
 	public static Player CurrentPlayer => _currentPlayerOverride ?? LocalPlayer;
+
+	/// <summary>
+	/// Use to iterate over active players. Game logic is usually only interested in <see cref="Entity.active"/> elements, this iterator facilitates that usage and allows for simpler and more readable code.
+	/// <para/> Typically used in a foreach statement:
+	/// <code>foreach (var player in Main.ActivePlayers) {
+	///     // Code
+	/// }
+	/// </code>
+	/// This is equivalent to the less convenient approach:
+	/// <code>
+	/// for (int i = 0; i &lt; Main.maxPlayers; i++) {
+	///     var player = Main.player[i];
+	///     if (!player.active)
+	///         continue;
+	///     // Code
+	/// }
+	/// </code>
+	/// Note that if the index of the Player in the <see cref="Main.player"/> array is needed, <see cref="Entity.whoAmI"/> can be used.
+	/// </summary>
+	public static ActiveEntityIterator<Player> ActivePlayers => new(player.AsSpan(0, maxPlayers));
+	/// <summary>
+	/// Use to iterate over active players. Game logic is usually only interested in <see cref="Entity.active"/> elements, this iterator facilitates that usage and allows for simpler and more readable code.
+	/// <para/> Typically used in a foreach statement:
+	/// <code>foreach (var npc in Main.ActiveNPCs) {
+	///     // Code
+	/// }
+	/// </code>
+	/// This is equivalent to the less convenient approach:
+	/// <code>
+	/// for (int i = 0; i &lt; Main.maxNPCs; i++) {
+	///     var npc = Main.npc[i];
+	///     if (!npc.active)
+	///         continue;
+	///     // Code
+	/// }
+	/// </code>
+	/// Note that if the index of the NPC in the <see cref="Main.npc"/> array is needed, <see cref="Entity.whoAmI"/> can be used.
+	/// </summary>
+	public static ActiveEntityIterator<NPC> ActiveNPCs => new(npc.AsSpan(0, maxNPCs));
+	/// <summary>
+	/// Use to iterate over active projectiles. Game logic is usually only interested in <see cref="Entity.active"/> elements, this iterator facilitates that usage and allows for simpler and more readable code.
+	/// <para/> Typically used in a foreach statement:
+	/// <code>foreach (var projectile in Main.ActiveProjectiles) {
+	///     // Code
+	/// }
+	/// </code>
+	/// This is equivalent to the less convenient approach:
+	/// <code>
+	/// for (int i = 0; i &lt; Main.maxProjectiles; i++) {
+	///     var projectile = Main.projectile[i];
+	///     if (!projectile.active)
+	///         continue;
+	///     // Code
+	/// }
+	/// </code>
+	/// Note that if the index of the Projectile in the <see cref="Main.projectile"/> array is needed, <see cref="Entity.whoAmI"/> can be used.
+	/// </summary>
+	public static ActiveEntityIterator<Projectile> ActiveProjectiles => new(projectile.AsSpan(0, maxProjectiles));
+	/// <summary>
+	/// Use to iterate over active items. Game logic is usually only interested in <see cref="Entity.active"/> elements, this iterator facilitates that usage and allows for simpler and more readable code.
+	/// <para/> Typically used in a foreach statement:
+	/// <code>foreach (var item in Main.ActiveItems) {
+	///     // Code
+	/// }
+	/// </code>
+	/// This is equivalent to the less convenient approach:
+	/// <code>
+	/// for (int i = 0; i &lt; Main.maxItems; i++) {
+	///     var item = Main.item[i];
+	///     if (!item.active)
+	///         continue;
+	///     // Code
+	/// }
+	/// </code>
+	/// Note that if the index of the Item in the <see cref="Main.item"/> array is needed, <see cref="Entity.whoAmI"/> can <b>not</b> be used. This will be fixed in 1.4.5, but for now the for loop approach would have to be used instead.
+	/// </summary>
+	public static ActiveEntityIterator<Item> ActiveItems => new(item.AsSpan(0, maxItems));
 
 	/// <summary>
 	/// Checks if a tile at the given coordinates counts towards tile coloring from the Spelunker buff, and is detected by various pets.
@@ -529,6 +610,55 @@ public partial class Main
 					newsIsNew = false;
 				}
 			}
+		}
+	}
+
+	private static void PrepareLoadedModsAndConfigsForSingleplayer()
+	{
+		// If any loaded mod or config differs from normal, intercept SinglePlayer menu with a prompt
+		// TODO: Should this remember the mod loadout before joining server? Right now it only cares about version downgrades. MP mods will still load.
+		bool needsReload = false;
+		List<ReloadRequiredExplanation> reloadRequiredExplanationEntries = new();
+		var normalModsToLoad = ModOrganizer.RecheckVersionsToLoad();
+		foreach (var loadedMod in ModLoader.ModLoader.Mods) {
+			if (loadedMod is ModLoaderMod || loadedMod.File == null)
+				continue;
+			var normalMod = normalModsToLoad.First(mod => mod.Name == loadedMod.Name); // If this throws, we have a big issue.
+			if (normalMod.modFile.path != loadedMod.File.path) {
+				reloadRequiredExplanationEntries.Add(new ReloadRequiredExplanation(1, normalMod.Name, normalMod, Language.GetTextValue("tModLoader.ReloadRequiredExplanationSwitchVersion", "FFFACD", normalMod.Version, loadedMod.Version)));
+				needsReload = true;
+			}
+		}
+
+		if(ConfigManager.AnyModNeedsReloadCheckOnly(out List<Mod> modsWithChangedConfigs)) {
+			needsReload = true;
+			foreach (var mod in modsWithChangedConfigs) {
+				var localMod = normalModsToLoad.First(localMod => localMod.Name == mod.Name);
+				reloadRequiredExplanationEntries.Add(new ReloadRequiredExplanation(5, mod.Name, localMod, Language.GetTextValue("tModLoader.ReloadRequiredExplanationConfigChangedRestore", "DDA0DD")));
+			}
+		}
+
+		// If reload is required, show message. Back action should leave current ModConfig instances unchanged 
+		if (needsReload) {
+			string continueButtonText = Language.GetTextValue("tModLoader.ReloadRequiredReloadAndContinue");
+			Interface.serverModsDifferMessage.Show(Language.GetTextValue("tModLoader.ReloadRequiredSinglePlayerMessage", continueButtonText),
+				gotoMenu: 0, // back to main menu
+				continueButtonText: continueButtonText,
+				continueButtonAction: () => {
+					ModLoader.ModLoader.OnSuccessfulLoad += () => { Main.menuMode = 1; };
+					ModLoader.ModLoader.Reload();
+				},
+				backButtonText: Language.GetTextValue("tModLoader.ModConfigBack"),
+				backButtonAction: () => {
+					// Do nothing, logic will to back to main menu
+				},
+				reloadRequiredExplanationEntries: reloadRequiredExplanationEntries
+			);
+		}
+		else {
+			// Otherwise, config changes take effect immediately and the player select menu will be shown
+			ConfigManager.LoadAll(); // Makes sure MP configs are cleared.
+			ConfigManager.OnChangedAll();
 		}
 	}
 }

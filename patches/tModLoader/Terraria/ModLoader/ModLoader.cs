@@ -67,7 +67,7 @@ public static class ModLoader
 	internal static bool skipLoad;
 	internal static Action OnSuccessfulLoad;
 
-	private static bool isLoading;
+	internal static bool isLoading;
 
 	public static Mod[] Mods { get; private set; } = new Mod[0];
 
@@ -91,7 +91,6 @@ public static class ModLoader
 		FileAssociationSupport.UpdateFileAssociation();
 		FolderShortcutSupport.UpdateFolderShortcuts();
 		MonoModHooks.Initialize();
-		ZipExtractFix.Init();
 		FNAFixes.Init();
 		LoaderManager.AutoLoad();
 	}
@@ -117,6 +116,8 @@ public static class ModLoader
 
 		var availableMods = ModOrganizer.FindMods(logDuplicates: true);
 		try {
+			var sw = Stopwatch.StartNew();
+
 			var modsToLoad = ModOrganizer.SelectAndSortMods(availableMods, token);
 			var modInstances = AssemblyManager.InstantiateMods(modsToLoad, token);
 			modInstances.Insert(0, new ModLoaderMod());
@@ -125,6 +126,8 @@ public static class ModLoader
 				modsByName[mod.Name] = mod;
 
 			ModContent.Load(token);
+
+			Logging.tML.Info($"Mod Load Completed in {sw.ElapsedMilliseconds}ms");
 
 			if (OnSuccessfulLoad != null) {
 				OnSuccessfulLoad();
@@ -156,7 +159,7 @@ public static class ModLoader
 			if (responsibleMods.Count == 1) {
 				var mod = availableMods.FirstOrDefault(m => m.Name == responsibleMods[0]); //use First rather than Single, incase of "Two mods with the same name" error message from ModOrganizer (#639)
 				if (mod != null)
-					msg += $" v{mod.properties.version}";
+					msg += $" v{mod.Version}";
 				if (mod != null && mod.tModLoaderVersion.MajorMinorBuild() != BuildInfo.tMLVersion.MajorMinorBuild())
 					msg += "\n" + Language.GetTextValue("tModLoader.LoadErrorVersionMessage", mod.tModLoaderVersion, versionedName);
 				else if (mod != null)
@@ -400,11 +403,7 @@ public static class ModLoader
 	/// </summary>
 	internal static void BuildGlobalHook<T, F>(ref F[] list, IList<T> providers, Expression<Func<T, F>> expr) where F : Delegate
 	{
-		list = BuildGlobalHook(providers, expr).Select(expr.Compile()).ToArray();
-	}
-
-	internal static T[] BuildGlobalHook<T, F>(IList<T> providers, Expression<Func<T, F>> expr) where F : Delegate
-	{
-		return providers.WhereMethodIsOverridden(expr).ToArray();
+		var query = expr.ToOverrideQuery();
+		list = providers.Where(query.HasOverride).Select(t => (F)query.Binder(t)).ToArray();
 	}
 }
