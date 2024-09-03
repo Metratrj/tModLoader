@@ -414,7 +414,7 @@ jobs:
           fetch-depth: 0
           
       - name: Download temporary encrypted src artifact from build job
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: temporary-src
           
@@ -516,7 +516,7 @@ jobs:
           done
           
       - name: Download build artifact from build job
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           # Change this next line to switch between uploading Release and Debug if desired. 
           name: Release Build
@@ -604,7 +604,7 @@ jobs:
           
       - name: Download ExampleMod build artifact from build job
         # This should hopefully always work since this job shouldn't even run if the build job failed due to ExampleMod not compiling.
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: ExampleMod Build
           path: artifacts/ExampleMod
